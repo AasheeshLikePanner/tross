@@ -24,25 +24,34 @@ type Session struct {
 	jar *cookiejar.Jar
 }
 
+func cleanCookieValue(v string) string {
+	v = strings.TrimSpace(v)
+	v = strings.Trim(v, `"'`)
+	v = strings.Trim(v, `"'`)
+	return strings.TrimSpace(v)
+}
+
 func NewSession(liAt, jsessionID, bcookie, bscookie, lidc string) (*Session, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, fmt.Errorf("linkedin: creating cookie jar: %w", err)
 	}
 
-	cleanJS := strings.Trim(jsessionID, `"`)
+	cleanLiAt := cleanCookieValue(liAt)
+	cleanJS := cleanCookieValue(jsessionID)
+
 	cookies := []*http.Cookie{
-		{Name: "li_at", Value: liAt, Path: "/", Domain: ".linkedin.com", Secure: true, HttpOnly: true},
+		{Name: "li_at", Value: cleanLiAt, Path: "/", Domain: ".linkedin.com", Secure: true, HttpOnly: true},
 		{Name: "JSESSIONID", Value: cleanJS, Path: "/", Domain: ".linkedin.com", Secure: true},
 	}
-	if bcookie != "" {
-		cookies = append(cookies, &http.Cookie{Name: "bcookie", Value: bcookie, Path: "/", Domain: ".linkedin.com", Secure: true})
+	if b := cleanCookieValue(bcookie); b != "" {
+		cookies = append(cookies, &http.Cookie{Name: "bcookie", Value: b, Path: "/", Domain: ".linkedin.com", Secure: true})
 	}
-	if bscookie != "" {
-		cookies = append(cookies, &http.Cookie{Name: "bscookie", Value: bscookie, Path: "/", Domain: ".www.linkedin.com", Secure: true, HttpOnly: true})
+	if bs := cleanCookieValue(bscookie); bs != "" {
+		cookies = append(cookies, &http.Cookie{Name: "bscookie", Value: bs, Path: "/", Domain: ".www.linkedin.com", Secure: true, HttpOnly: true})
 	}
-	if lidc != "" {
-		cookies = append(cookies, &http.Cookie{Name: "lidc", Value: lidc, Path: "/", Domain: ".linkedin.com", Secure: true})
+	if l := cleanCookieValue(lidc); l != "" {
+		cookies = append(cookies, &http.Cookie{Name: "lidc", Value: l, Path: "/", Domain: ".linkedin.com", Secure: true})
 	}
 
 	jar.SetCookies(linkedInBaseURL, cookies)
