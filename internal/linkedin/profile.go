@@ -2,6 +2,7 @@ package linkedin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 )
@@ -54,6 +55,9 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		slog.Info("component fetch succeeded", "component", "about", "bytes", len(data))
 	} else {
 		slog.Warn("component fetch failed", "component", "about", "err", err)
+		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
+			return nil, err
+		}
 	}
 
 	// Step 3: Experience section via profileCardsExperienceOnly
@@ -62,6 +66,9 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		slog.Info("component fetch succeeded", "component", "experience", "items", len(profile.Experience), "bytes", len(data))
 	} else {
 		slog.Warn("component fetch failed", "component", "experience", "err", err)
+		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
+			return nil, err
+		}
 	}
 
 	// Step 4: Education & Certifications via Part1WithoutExp
@@ -76,6 +83,9 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		slog.Info("component fetch succeeded", "component", "education_certs", "edu", len(edu), "certs", len(certs))
 	} else {
 		slog.Warn("component fetch failed", "component", "education_certs", "err", err)
+		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
+			return nil, err
+		}
 	}
 
 	// Step 5: Languages via Part4
@@ -87,6 +97,9 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		slog.Info("component fetch succeeded", "component", "languages", "items", len(langs))
 	} else {
 		slog.Warn("component fetch failed", "component", "languages", "err", err)
+		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
+			return nil, err
+		}
 	}
 
 	// Step 6: Skills via Part7
@@ -98,6 +111,9 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		slog.Info("component fetch succeeded", "component", "skills", "items", len(skills))
 	} else {
 		slog.Warn("component fetch failed", "component", "skills", "err", err)
+		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
+			return nil, err
+		}
 	}
 
 	return profile, nil

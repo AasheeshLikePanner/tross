@@ -11,16 +11,31 @@ import (
 
 func main() {
 	liAt := os.Getenv("LINKEDIN_LI_AT")
+	if liAt == "" {
+		liAt = os.Getenv("LI_AT")
+	}
 	jsessionID := os.Getenv("LINKEDIN_JSESSIONID")
+	if jsessionID == "" {
+		jsessionID = os.Getenv("JSESSIONID")
+	}
 
 	if liAt == "" || jsessionID == "" {
-		slog.Error("LINKEDIN_LI_AT and LINKEDIN_JSESSIONID must be set")
+		slog.Error("LINKEDIN_LI_AT (or LI_AT) and LINKEDIN_JSESSIONID (or JSESSIONID) must be set")
 		os.Exit(1)
 	}
 
 	bcookie := os.Getenv("LINKEDIN_BCOOKIE")
+	if bcookie == "" {
+		bcookie = os.Getenv("BCOOKIE")
+	}
 	bscookie := os.Getenv("LINKEDIN_BSCOOKIE")
+	if bscookie == "" {
+		bscookie = os.Getenv("BSCOOKIE")
+	}
 	lidc := os.Getenv("LINKEDIN_LIDC")
+	if lidc == "" {
+		lidc = os.Getenv("LIDC")
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
