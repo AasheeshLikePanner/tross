@@ -1,0 +1,17 @@
+.env
+*.env
+
+# Go
+/server
+/cmd/server/server
+rscprobe
+*.exe
+*.test
+*.bin
+!internal/linkedin/testdata/*.bin
+vendor/
+
+# OS
+.DS_Store
+.idea/
+.vscode/
