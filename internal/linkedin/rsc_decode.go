@@ -179,8 +179,14 @@ func DecodeFlightChunks(data []byte) map[string]interface{} {
 	return chunks
 }
 
-// DecodeAbout extracts the bio / summary from profileCardsAboveActivity payload.
-func DecodeAbout(data []byte) string {
+// DecodeAboutAndFeatured extracts the bio/summary and featured items from profileCardsAboveActivity payload.
+func DecodeAboutAndFeatured(data []byte) (string, []RawFeaturedItem) {
+	about := ""
+	var featured []RawFeaturedItem
+
+	text := string(data)
+
+	// Extract about from chunks
 	chunks := DecodeFlightChunks(data)
 	for _, node := range chunks {
 		s, err := json.Marshal(node)
@@ -189,16 +195,68 @@ func DecodeAbout(data []byte) string {
 		}
 		str := string(s)
 		if strings.Contains(str, "aboutSection") || strings.Contains(str, "profile-card-about") {
-			// Find text string inside children
 			for _, m := range stringChildRe.FindAllStringSubmatch(str, -1) {
 				t := m[1]
 				if len(t) > 20 && !strings.HasPrefix(t, "$") && !strings.Contains(t, "com.linkedin") {
-					return cleanFlightString(t)
+					about = cleanFlightString(t)
+					break
 				}
 			}
 		}
 	}
-	return ""
+
+	// Extract featured items from token stream
+	var extractedStrings []string
+	for _, line := range strings.Split(text, "\n") {
+		for _, m := range stringChildRe.FindAllStringSubmatch(line, -1) {
+			t := cleanFlightString(m[1])
+			if t != "" && !strings.HasPrefix(t, "$L") && !strings.HasPrefix(t, "var(--") {
+				extractedStrings = append(extractedStrings, t)
+			}
+		}
+	}
+
+	inFeatured := false
+	for i := 0; i < len(extractedStrings); i++ {
+		token := extractedStrings[i]
+		if token == "Featured" {
+			inFeatured = true
+			continue
+		}
+		if !inFeatured {
+			continue
+		}
+
+		if token == "Link" || token == "Post" || token == "Article" || token == "Document" {
+			item := RawFeaturedItem{Type: token}
+			i++
+			for i < len(extractedStrings) {
+				next := extractedStrings[i]
+				if next == "Link" || next == "Post" || next == "Article" || next == "Document" || next == "Activity" {
+					i--
+					break
+				}
+				if strings.HasPrefix(next, "http") {
+					item.URL = next
+				} else if item.Title == "" {
+					item.Title = next
+				} else if item.Description == "" {
+					item.Description = next
+				}
+				i++
+			}
+			if item.Title != "" {
+				featured = append(featured, item)
+			}
+			continue
+		}
+
+		if token == "Activity" {
+			break
+		}
+	}
+
+	return about, featured
 }
 
 // DecodeExperience extracts job positions from profileCardsExperienceOnly payload.
@@ -298,17 +356,18 @@ func DecodeEducation(data []byte) ([]RawEducationItem, []RawCertificationItem) {
 	for _, line := range strings.Split(text, "\n") {
 		for _, m := range stringChildRe.FindAllStringSubmatch(line, -1) {
 			t := cleanFlightString(m[1])
-			if t != "" && !strings.HasPrefix(t, "$L") && !strings.HasPrefix(t, "var(--") && t != "Education" {
+			if t != "" && !strings.HasPrefix(t, "$L") && !strings.HasPrefix(t, "var(--") && t != "Education" && t != "Licenses & certifications" && t != "Show all" {
 				extractedStrings = append(extractedStrings, t)
 			}
 		}
 	}
 
-	// Detect school followed by degree
-	for i := 0; i < len(extractedStrings); i++ {
-		schoolCandidate := extractedStrings[i]
-		if isSchoolToken(schoolCandidate) {
-			item := RawEducationItem{School: schoolCandidate}
+	i := 0
+	for i < len(extractedStrings) {
+		token := extractedStrings[i]
+
+		if isSchoolToken(token) {
+			item := RawEducationItem{School: token}
 			if i+1 < len(extractedStrings) && isDegreeToken(extractedStrings[i+1]) {
 				degreeText := extractedStrings[i+1]
 				deg, fos := parseDegreeAndFOS(degreeText)
@@ -317,11 +376,49 @@ func DecodeEducation(data []byte) ([]RawEducationItem, []RawCertificationItem) {
 				i++
 			}
 			eduItems = append(eduItems, item)
+			i++
+			continue
 		}
+
+		if isCertName(i, extractedStrings) {
+			cert := RawCertificationItem{Name: token}
+			i++
+			// Next token is the issuing authority/organization
+			if i < len(extractedStrings) && !strings.HasPrefix(strings.ToLower(extractedStrings[i]), "issued") && !strings.HasPrefix(strings.ToLower(extractedStrings[i]), "credential") {
+				cert.Authority = extractedStrings[i]
+				i++
+			}
+			// Skip "Issued ..." and "Credential ID ..." lines
+			for i < len(extractedStrings) {
+				lowerNext := strings.ToLower(extractedStrings[i])
+				if strings.HasPrefix(lowerNext, "issued") || strings.HasPrefix(lowerNext, "credential id") {
+					i++
+				} else {
+					break
+				}
+			}
+			certItems = append(certItems, cert)
+			continue
+		}
+
+		i++
 	}
 
 	_ = chunks
 	return eduItems, certItems
+}
+
+func isCertName(idx int, tokens []string) bool {
+	for j := idx + 1; j < len(tokens) && j <= idx+4; j++ {
+		lower := strings.ToLower(tokens[j])
+		if strings.HasPrefix(lower, "issued") || strings.HasPrefix(lower, "credential id") {
+			return true
+		}
+		if isSchoolToken(tokens[j]) {
+			return false
+		}
+	}
+	return false
 }
 
 // DecodeLanguages extracts languages from Part4 payload.

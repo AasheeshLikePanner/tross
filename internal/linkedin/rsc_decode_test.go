@@ -155,7 +155,7 @@ func TestDecodeSkills(t *testing.T) {
 func TestDecode_MalformedAndEmpty(t *testing.T) {
 	// Should not panic on garbage input
 	garbage := []byte("!@#$%^&*()_+=-[]{};':\",.<>/?\\|`~")
-	if about := linkedin.DecodeAbout(garbage); about != "" {
+	if about, _ := linkedin.DecodeAboutAndFeatured(garbage); about != "" {
 		t.Errorf("expected empty about for garbage input, got %q", about)
 	}
 	if exp := linkedin.DecodeExperience(garbage); len(exp) != 0 {

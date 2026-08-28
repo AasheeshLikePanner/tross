@@ -8,6 +8,7 @@ type Profile struct {
 	About            string          `json:"about,omitempty"`
 	Location         *Location       `json:"location,omitempty"`
 	ProfileImage     *Image          `json:"profile_image,omitempty"`
+	Featured         []FeaturedItem  `json:"featured"`
 	Experience       []Experience    `json:"experience"`
 	Education        []Education     `json:"education"`
 	Skills           []Skill         `json:"skills"`
@@ -72,4 +73,11 @@ type Certification struct {
 type Language struct {
 	Name        string `json:"name"`
 	Proficiency string `json:"proficiency,omitempty"`
+}
+
+type FeaturedItem struct {
+	Type        string `json:"type,omitempty"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url,omitempty"`
 }

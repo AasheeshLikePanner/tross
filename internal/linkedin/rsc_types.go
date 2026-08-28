@@ -18,6 +18,7 @@ type InternalProfile struct {
 	Certifications   []RawCertificationItem
 	Languages        []RawLanguageItem
 	Skills           []RawSkillItem
+	Featured         []RawFeaturedItem
 }
 
 type RawProfileTopCard struct {
@@ -66,4 +67,11 @@ type RawLanguageItem struct {
 
 type RawSkillItem struct {
 	Name string
+}
+
+type RawFeaturedItem struct {
+	Type        string
+	Title       string
+	Description string
+	URL         string
 }

@@ -45,16 +45,21 @@ func (c *Client) FetchProfile(ctx context.Context, slug string) (*InternalProfil
 		Certifications:   []RawCertificationItem{},
 		Languages:        []RawLanguageItem{},
 		Skills:           []RawSkillItem{},
+		Featured:         []RawFeaturedItem{},
 	}
 
 	vieweeID := topCard.VieweeProfileID
 
-	// Step 2: About section via profileCardsAboveActivity
+	// Step 2: About + Featured section via profileCardsAboveActivity
 	if data, err := c.FetchComponent(ctx, CompAbove, slug, vieweeID, referer); err == nil {
-		profile.About = DecodeAbout(data)
-		slog.Info("component fetch succeeded", "component", "about", "bytes", len(data))
+		about, featuredItems := DecodeAboutAndFeatured(data)
+		profile.About = about
+		if len(featuredItems) > 0 {
+			profile.Featured = featuredItems
+		}
+		slog.Info("component fetch succeeded", "component", "about_featured", "featured", len(featuredItems), "bytes", len(data))
 	} else {
-		slog.Warn("component fetch failed", "component", "about", "err", err)
+		slog.Warn("component fetch failed", "component", "about_featured", "err", err)
 		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrAuthChallenge) {
 			return nil, err
 		}

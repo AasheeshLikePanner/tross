@@ -132,5 +132,19 @@ func Normalize(publicIdentifier, profileURL string, raw *linkedin.InternalProfil
 		})
 	}
 
+	// Featured
+	p.Featured = make([]FeaturedItem, 0, len(raw.Featured))
+	for _, f := range raw.Featured {
+		if f.Title == "" {
+			continue
+		}
+		p.Featured = append(p.Featured, FeaturedItem{
+			Type:        f.Type,
+			Title:       f.Title,
+			Description: f.Description,
+			URL:         f.URL,
+		})
+	}
+
 	return p, nil
 }
