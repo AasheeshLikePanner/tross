@@ -86,6 +86,13 @@ curl -X POST http://localhost:8080/v1/profiles \
   "profile_image": {
     "url": "https://media.licdn.com/dms/image/v2/D5603AQGkpgd8Xb13Og/profile-displayphoto-scale_100_100/..."
   },
+  "featured": [
+    {
+      "type": "Link",
+      "title": "Get APIs for any EHR and Payer Portals",
+      "url": "https://ontross.com/"
+    }
+  ],
   "experience": [
     {
       "title": "Co-Founder",
@@ -134,7 +141,7 @@ Incoming Request: POST /v1/profiles
 [ Stateful LinkedIn Session ]  ── Auto-manages cookies via net/http/cookiejar
        │
        ├─► 1. GET /in/{slug}/           ── SSR TopCard (Name, Headline, Location, Photo)
-       ├─► 2. POST ...AboveActivity      ── About / Bio
+       ├─► 2. POST ...AboveActivity      ── About / Bio & Featured Section
        ├─► 3. POST ...ExperienceOnly     ── Work History (Sorted newest first)
        ├─► 4. POST ...Part1WithoutExp    ── Education & Certifications
        ├─► 5. POST ...Part4              ── Languages
@@ -158,9 +165,10 @@ In empirical testing, legacy Voyager REST endpoints (`/voyager/api/...`) frequen
 | **Location** | Initial `GET /in/{slug}/` | Full (`city`, `region`, `country`) |
 | **Profile Image** | Initial `GET /in/{slug}/` | Full high-res CDN URL |
 | **About** | `profileCardsAboveActivity` | Full summary text |
+| **Featured** | `profileCardsAboveActivity` | Full featured items (links, posts, articles) |
 | **Experience** | `profileCardsExperienceOnly` | Full chronological list (`current: true`, `end_date: null`) |
 | **Education** | `profileCardsBelowActivityPart1WithoutExp` | Full (`school`, `degree`, `field_of_study`) |
-| **Certifications** | `profileCardsBelowActivityPart1WithoutExp` | Full licenses & credentials |
+| **Certifications** | `profileCardsBelowActivityPart1WithoutExp` | Full licenses & credentials with authority |
 | **Languages** | `profileCardsBelowActivityPart4` | Full languages & proficiencies |
 | **Skills** | `profileCardsBelowActivityPart7` | Pinned / Top skills from profile card |
 
