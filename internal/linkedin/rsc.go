@@ -105,6 +105,7 @@ func (c *Client) FetchComponent(ctx context.Context, componentID, slug, vieweePr
 	}
 
 	c.setBrowserHeaders(req, http.MethodPost, referer)
+	req.Header.Set("Origin", "https://www.linkedin.com")
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("accept", "application/octet-stream")
 	req.Header.Set("x-li-rsc-stream", "1")
