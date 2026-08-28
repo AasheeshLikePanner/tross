@@ -1,90 +1,70 @@
 # LinkedIn Profile Normalization API
 
-A high-performance Go HTTP service that converts any public LinkedIn profile URL into clean, structured, normalized JSON.
+A lightweight, zero-browser Go service that converts any public LinkedIn profile URL into clean, structured JSON using LinkedIn's internal Flagship React Server Components (RSC) protocol.
 
-- **Zero browser automation**: Uses direct HTTP against LinkedIn's internal Flagship React Server Components (RSC) & Server-Driven UI (SDUI) endpoints.
-- **Server-owned session**: Uses your backend `li_at` and `JSESSIONID` cookies. The caller needs no authentication.
-- **Automated cookie management**: Stateful `net/http/cookiejar` synchronizes auxiliary cookies (`sdui_ver`, `lidc`, `bcookie`) across requests.
-- **Concurrency-safe**: A process-wide semaphore protects the session by queuing incoming profile requests serially.
+- **Zero Browser Overhead**: Uses direct HTTP only (no Puppeteer, Playwright, or Selenium).
+- **Server-Owned Authentication**: Backed by a single server-owned LinkedIn session.
+- **Stateful Session**: Auto-manages dynamic cookies (`JSESSIONID`, `sdui_ver`, `lidc`) via `net/http/cookiejar`.
+- **Concurrency-Safe**: Process-wide semaphore (capacity 1) serializes requests to protect account health.
 
 ---
 
 ## Quickstart
 
 ### 1. Configure Environment
-Copy `.env.example` to `.env` and insert your LinkedIn session cookies:
-
 ```bash
 cp .env.example .env
 ```
-
+Add your LinkedIn cookies to `.env`:
 ```env
 LINKEDIN_LI_AT="AQED..."
-LINKEDIN_JSESSIONID='"ajax:..."'
+LINKEDIN_JSESSIONID="ajax:..."
 PORT=8080
 ```
 
-> **Note**: `.env` is ignored by git and will never be committed.
+### 2. Run the Service
 
-### 2. Run the Server
-
-**Option A: Local Go (1.22+)**
+**Local Go (1.22+)**
 ```bash
 go run ./cmd/server/
 ```
 
-**Option B: Docker**
+**Docker**
 ```bash
 docker build -t linkedin-profile-api .
 docker run -p 8080:8080 --env-file .env linkedin-profile-api
 ```
 
-### 3. Test the API
+---
 
-**Health check:**
-```bash
-curl http://localhost:8080/health
-```
+## API Usage
 
-**Fetch a profile:**
+### `POST /v1/profiles`
+
 ```bash
 curl -X POST http://localhost:8080/v1/profiles \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.linkedin.com/in/evan-king-40072280/"}'
-```
-
----
-
-## API Specification
-
-### Endpoint: `POST /v1/profiles`
-
-#### Request
-```json
-{
-  "url": "https://www.linkedin.com/in/evan-king-40072280/"
-}
+  -d '{"url":"https://www.linkedin.com/in/meetcshah19/"}'
 ```
 
 #### Response (200 OK)
 ```json
 {
-  "profile_url": "https://www.linkedin.com/in/evan-king-40072280/",
-  "public_identifier": "evan-king-40072280",
+  "profile_url": "https://www.linkedin.com/in/meetcshah19/",
+  "public_identifier": "meetcshah19",
   "name": {
-    "first": "Evan",
-    "last": "King",
-    "full": "Evan King"
+    "first": "Meet",
+    "last": "Shah",
+    "full": "Meet Shah"
   },
-  "headline": "Co-founder @ hellointerview.com",
-  "about": "Helping software engineers pass technical interviews...",
+  "headline": "Co-founder @ Tross",
   "location": {
-    "city": "Santa Monica",
+    "city": "San Francisco",
     "region": "California",
     "country": "United States"
   },
   "profile_image": {
-    "url": "https://media.licdn.com/dms/image/v2/D5603AQGkpgd8Xb13Og/profile-displayphoto-scale_100_100/..."
+    "url": "https://media.licdn.com/dms/image/..."
   },
   "featured": [
     {
@@ -95,122 +75,63 @@ curl -X POST http://localhost:8080/v1/profiles \
   ],
   "experience": [
     {
-      "title": "Co-Founder",
-      "company": "Hello Interview",
-      "location": "Los Angeles, California, United States",
-      "start_date": { "month": 5, "year": 2023 },
+      "title": "Co-Founder and CTO",
+      "company": "Tross",
+      "start_date": { "month": 6, "year": 2025 },
       "end_date": null,
       "current": true
-    },
-    {
-      "title": "Staff Software Engineer",
-      "company": "Meta",
-      "location": "Greater Seattle Area",
-      "start_date": { "month": 8, "year": 2017 },
-      "end_date": { "month": 3, "year": 2022 },
-      "current": false
     }
   ],
   "education": [
     {
-      "school": "Cornell University",
-      "degree": "Bachelor’s Degree",
+      "school": "Indian Institute of Technology, Roorkee",
+      "degree": "Bachelor of Technology - BTech",
       "field_of_study": "Computer Science"
     }
   ],
   "skills": [
     { "name": "Java" },
-    { "name": "C#" }
+    { "name": "Python" }
   ],
-  "certifications": [],
+  "certifications": [
+    {
+      "name": "CSAW'21 Embedded Security Challenge Finalist India",
+      "authority": "CSAW Cybersecurity Games & Conference"
+    }
+  ],
   "languages": []
 }
 ```
 
 ---
 
-## Architecture & Request Flow
+## Architecture Flow
 
 ```
-Incoming Request: POST /v1/profiles
-       │
-       ▼
-[ Process Semaphore (Cap: 1) ] ── Queues incoming requests; respects timeouts.
-       │
-       ▼
-[ Stateful LinkedIn Session ]  ── Auto-manages cookies via net/http/cookiejar
-       │
-       ├─► 1. GET /in/{slug}/           ── SSR TopCard (Name, Headline, Location, Photo)
-       ├─► 2. POST ...AboveActivity      ── About / Bio & Featured Section
-       ├─► 3. POST ...ExperienceOnly     ── Work History (Sorted newest first)
-       ├─► 4. POST ...Part1WithoutExp    ── Education & Certifications
-       ├─► 5. POST ...Part4              ── Languages
-       └─► 6. POST ...Part7              ── Pinned / Top Skills
-       │
-       ▼
-[ Normalizer ] ── Returns clean JSON with guaranteed non-null empty arrays (`[]`).
+POST /v1/profiles
+      │
+      ▼
+[ Concurrency Semaphore (1) ] ── Queues concurrent requests serially
+      │
+      ▼
+[ LinkedIn Client ] ── Replays Flagship RSC calls via stateful cookiejar
+      ├─► GET  /in/{slug}/           ── TopCard (Name, Headline, Location, Photo)
+      ├─► POST ...AboveActivity      ── About & Featured Items
+      ├─► POST ...ExperienceOnly     ── Work History
+      ├─► POST ...Part1WithoutExp    ── Education & Certifications
+      ├─► POST ...Part4              ── Languages
+      └─► POST ...Part7              ── Skills
+      │
+      ▼
+[ Normalizer ] ── Returns clean JSON with guaranteed non-null empty arrays (`[]`)
 ```
-
-### Why Flagship RSC?
-In empirical testing, legacy Voyager REST endpoints (`/voyager/api/...`) frequently triggered anti-abuse session invalidation (`Set-Cookie: li_at=delete me; Max-Age=0`). In our controlled test, the modern Flagship RSC implementation completed 25/25 requests across 5 distinct profiles while the session remained healthy and valid.
 
 ---
 
-## Field Completeness
+## Testing
 
-| Field | Source Component | Coverage |
-| :--- | :--- | :--- |
-| **Name** | Initial `GET /in/{slug}/` | Full (`first`, `last`, `full`) |
-| **Headline** | Initial `GET /in/{slug}/` | Full |
-| **Location** | Initial `GET /in/{slug}/` | Full (`city`, `region`, `country`) |
-| **Profile Image** | Initial `GET /in/{slug}/` | Full high-res CDN URL |
-| **About** | `profileCardsAboveActivity` | Full summary text |
-| **Featured** | `profileCardsAboveActivity` | Full featured items (links, posts, articles) |
-| **Experience** | `profileCardsExperienceOnly` | Full chronological list (`current: true`, `end_date: null`) |
-| **Education** | `profileCardsBelowActivityPart1WithoutExp` | Full (`school`, `degree`, `field_of_study`) |
-| **Certifications** | `profileCardsBelowActivityPart1WithoutExp` | Full licenses & credentials with authority |
-| **Languages** | `profileCardsBelowActivityPart4` | Full languages & proficiencies |
-| **Skills** | `profileCardsBelowActivityPart7` | Pinned / Top skills from profile card |
-
----
-
-## Error Handling
-
-All errors return standard JSON responses:
-
-```json
-{
-  "error": {
-    "code": "INVALID_PROFILE_URL",
-    "message": "Expected a LinkedIn /in/ profile URL."
-  }
-}
-```
-
-| HTTP Status | Error Code | Cause |
-| :-: | :--- | :--- |
-| `400` | `INVALID_REQUEST` / `INVALID_PROFILE_URL` | Malformed JSON or non-LinkedIn URL |
-| `404` | `PROFILE_NOT_FOUND` | Profile slug does not exist or account is private |
-| `415` | `INVALID_REQUEST` | Content-Type header is not `application/json` |
-| `424` | `LINKEDIN_SESSION_EXPIRED` | `li_at` expired or redirected to `/login` |
-| `424` | `LINKEDIN_AUTH_CHALLENGE` | LinkedIn presented a security checkpoint |
-| `429` | `LINKEDIN_RATE_LIMITED` | Upstream rate limit reached |
-| `502` | `LINKEDIN_UPSTREAM_ERROR` | LinkedIn upstream 5xx or connection failure |
-
----
-
-## Running Tests
-
-All unit and mock tests run **100% offline** without live credentials:
+All tests run **100% offline** with mock fixtures (no live credentials needed):
 
 ```bash
 go test -v ./...
 ```
-
----
-
-## Limitations
-
-1. **Undocumented Protocol**: LinkedIn's internal Flagship RSC and SDUI endpoints may change without notice.
-2. **Session Lifespan**: Intensive scraping from datacenter IPs may trigger account checkpoints. When triggered, the service returns `424 LINKEDIN_AUTH_CHALLENGE`.
-3. **Skills Preview**: The profile card exposes top pinned skills. Extracting a candidate's complete 50+ skill history requires detail modal navigation, which is not exposed over static direct HTTP without browser virtual router state.
